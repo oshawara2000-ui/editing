@@ -21,6 +21,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("folder")
     ap.add_argument("--draft", action="store_true")
+    ap.add_argument("--rotate", choices=["cw", "ccw", "180"], help="fix a sideways camera clip")
     a = ap.parse_args()
     p = reel_paths(a.folder)
     plan = read_json(p["work"] / "plan.json")
@@ -28,6 +29,7 @@ def main():
     if not a.draft and not plan.get("approved"):
         sys.exit('Final needs approval: set "approved": true in plan.json (render --draft first)')
 
+    rot = {"cw": "transpose=1,", "ccw": "transpose=2,", "180": "hflip,vflip,", None: ""}[a.rotate]
     W, H = (720, 1280) if a.draft else (2160, 3840)
     fps = probe.get("fps") or 30
     clips = ([plan["hook"]] if plan["hook"].get("play_first", True) else []) + plan["keep"]
@@ -35,7 +37,7 @@ def main():
     for i, c in enumerate(clips):
         s, e = float(c["start"]), float(c["end"])
         parts.append(
-            f"[0:v]trim={s}:{e},setpts=PTS-STARTPTS,"
+            f"[0:v]trim={s}:{e},setpts=PTS-STARTPTS,{rot}"
             f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},setsar=1[v{i}];"
             f"[0:a]atrim={s}:{e},asetpts=PTS-STARTPTS,afade=t=in:d=0.02,afade=t=out:st={max(e-s-0.03,0)}:d=0.03[a{i}];"
         )
